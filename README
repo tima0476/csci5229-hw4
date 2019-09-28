@@ -1,0 +1,22 @@
+# csci5229-hw3
+HW 3 for CSCI 5229 Computer Graphics - University of Colorado Boulder
+Timothy Mason
+
+This is a scene of several rocket ships around a central planet.  The rockets
+are generated from a canned array of points which define the shape of the hull.
+Those points are then spun around a central axis to create a cylindrical solid.
+The routine "lathe" which creates the cylindrical solid is capable of using any
+arbitrary hull shape.  For example, it could easily be used to create an hourglass
+shape, a cylinder, a car wheel, etc.
+
+This cylindrical solid is used for the hull of the spaceship.  Rocket fins are then
+added using a similar array traversal technique which builds a quadstrip based 
+solid surface.  By using a quadstrip, the "must be convex" limitation on OpenGL
+polygons is avoided.
+
+Key bindings:
+  a          Toggle display of axes
+  arrows     Change view angle
+  0          Reset view angle
+  ESC        Exit
+
