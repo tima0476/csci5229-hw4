@@ -1,3 +1,7 @@
+# executable
+hw4
+*.exe
+
 # Prerequisites
 *.d
 

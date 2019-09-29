@@ -26,9 +26,13 @@
 #include <GL/glut.h>
 #endif
 
+int axes=0;       //  Display axes
+int mode=0;       //  Projection mode
 int th=0;         //  Azimuth of view angle
 int ph=0;         //  Elevation of view angle
-int axes=1;       //  Display axes
+int fov=55;       //  Field of view (for perspective)
+double asp=1;     //  Aspect ratio
+double dim=2.5;   //  Size of world
 
 //  Cosine and Sine in degrees
 #define Cos(x) (cos((x)*3.1415926/180))
@@ -53,6 +57,35 @@ void Print(const char* format, ...)
    //  Display the characters one at a time at the current raster position
    while (*ch)
       glutBitmapCharacter(GLUT_BITMAP_9_BY_15, *ch++);
+}
+
+/*
+ *  Set projection (based from class example 9)
+ */
+static void Project()
+{
+   //  Tell OpenGL we want to manipulate the projection matrix
+   glMatrixMode(GL_PROJECTION);
+   //  Undo previous transformations
+   glLoadIdentity();
+
+   switch (mode)
+   {
+      case 0:
+      default:
+         glOrtho(-asp*dim,+asp*dim, -dim,+dim, -dim,+dim);
+         break;
+
+      case 1:
+         // Set overhead perspective transformation 
+         gluPerspective(fov,asp,dim/4,4*dim);
+
+         break;
+   }
+
+   glMatrixMode(GL_MODELVIEW);
+   //  Undo previous transformations
+   glLoadIdentity();
 }
 
 /*
@@ -273,9 +306,28 @@ void display()
    glEnable(GL_DEPTH_TEST);
    //  Undo previous transformations
    glLoadIdentity();
-   //  Set view angle
-   glRotatef(ph,1,0,0);
-   glRotatef(th,0,1,0);
+
+   switch(mode)
+   {
+      case 0:
+      default:
+      // Orthogonal - set world orientation
+      {
+         glRotatef(ph,1,0,0);
+         glRotatef(th,0,1,0);
+         break;
+      }
+      
+      case 1:
+      // Overhead perspective - set eye position
+      {
+         double Ex = -2*dim*Sin(th)*Cos(ph);
+         double Ey = +2*dim        *Sin(ph);
+         double Ez = +2*dim*Cos(th)*Cos(ph);
+         gluLookAt(Ex,Ey,Ez , 0,0,0 , 0,Cos(ph),0);
+         break;
+      }
+   }
 
    // Draw some rockets
    // (ref: http://colorizer.org/ for a good interactive color chooser)
@@ -288,10 +340,8 @@ void display()
    //  Draw a psychadelic planet in the center
    sphere(0,0,0, 0.3);
 
-   //  White
+   //  Draw white axes
    glColor3f(1,1,1);
-   
-   //  Draw axes
    if (axes)
    {
       glBegin(GL_LINES);
@@ -313,7 +363,7 @@ void display()
    //  Five pixels from the lower left corner of the window
    glWindowPos2i(5,25);
    //  Print the text string
-   Print("Angle=%d,%d",th,ph);
+   Print("Angle=%d,%d  Dim=%.1f FOV=%d Projection=%s",th,ph,dim,fov,mode?"Perpective":"Orthogonal");
    //  Render the scene
    glFlush();
    //  Make the rendered scene visible
@@ -337,9 +387,17 @@ void special(int key,int x,int y)
    //  Down arrow key - decrease elevation by 5 degrees
    else if (key == GLUT_KEY_DOWN)
       ph -= 5;
+   //  PageUp key - increase dim
+   else if (key == GLUT_KEY_PAGE_UP)
+      dim += 0.1;
+   //  PageDown key - decrease dim
+   else if (key == GLUT_KEY_PAGE_DOWN && dim>1)
+      dim -= 0.1;
    //  Keep angles to +/-360 degrees
    th %= 360;
    ph %= 360;
+   //  Update projection
+   Project();
    //  Tell GLUT it is necessary to redisplay the scene
    glutPostRedisplay();
 }
@@ -358,6 +416,15 @@ void key(unsigned char ch,int x,int y)
    //  Toggle axes
    else if (ch == 'a' || ch == 'A')
       axes = 1-axes;
+   else if (ch == 'm' || ch == 'M')
+      mode = 1-mode;
+   //  Change field of view angle
+   else if (ch == '-' && ch>1)
+      fov--;
+   else if (ch == '+' && ch<179)
+      fov++;
+   //  Reproject
+   Project();
    //  Tell GLUT it is necessary to redisplay the scene
    glutPostRedisplay();
 }
@@ -367,21 +434,12 @@ void key(unsigned char ch,int x,int y)
  */
 void reshape(int width,int height)
 {
-   const double dim=2.5;
    //  Ratio of the width to the height of the window
-   double w2h = (height>0) ? (double)width/height : 1;
+   asp = (height>0) ? (double)width/height : 1;
    //  Set the viewport to the entire window
    glViewport(0,0, width,height);
-   //  Tell OpenGL we want to manipulate the projection matrix
-   glMatrixMode(GL_PROJECTION);
-   //  Undo previous transformations
-   glLoadIdentity();
-   //  Orthogonal projection
-   glOrtho(-w2h*dim,+w2h*dim, -dim,+dim, -dim,+dim);
-   //  Switch to manipulating the model matrix
-   glMatrixMode(GL_MODELVIEW);
-   //  Undo previous transformations
-   glLoadIdentity();
+   //  Set projection
+   Project();
 }
 
 /*
@@ -389,30 +447,18 @@ void reshape(int width,int height)
  */
 int main(int argc,char* argv[])
 {
-   //  Initialize GLUT and process user parameters
+   //  Initialize GLUT
    glutInit(&argc,argv);
-
    //  Request double buffered, true color window with Z buffering at 600x600
-   glutInitWindowSize(800,800);
    glutInitDisplayMode(GLUT_RGB | GLUT_DEPTH | GLUT_DOUBLE);
-
-   //  Create the window
+   glutInitWindowSize(800,800);
    glutCreateWindow("Timothy Mason");
-
-   //  Tell GLUT to call "display" when the scene should be drawn
+   //  Set callbacks
    glutDisplayFunc(display);
-
-   //  Tell GLUT to call "reshape" when the window is resized
    glutReshapeFunc(reshape);
-
-   //  Tell GLUT to call "special" when an arrow key is pressed
    glutSpecialFunc(special);
-
-   //  Tell GLUT to call "key" when a key is pressed
    glutKeyboardFunc(key);
-
    //  Pass control to GLUT so it can interact with the user
    glutMainLoop();
-
    return 0;
 }
