@@ -26,13 +26,16 @@
 #include <GL/glut.h>
 #endif
 
-int axes=0;       //  Display axes
-int mode=0;       //  Projection mode
-int th=0;         //  Azimuth of view angle
-int ph=0;         //  Elevation of view angle
-int fov=55;       //  Field of view (for perspective)
-double asp=1;     //  Aspect ratio
-double dim=2.5;   //  Size of world
+int axes=0;          // Display axes
+int mode=0;          // Projection mode
+int th=0;            // Azimuth of view angle
+int ph=0;            // Elevation of view angle
+int fov=55;          // Field of view (for perspective)
+double asp=1;        // Aspect ratio
+double dim=2.5;      // Size of world
+double Ex,Ey,Ez;     // Eye position needs global persistence in first person mode
+double Lx,Ly,Lz;     // Avoid repeating calculations by making "look at" vector global
+
 char * mode_desc[] = {
    "Orthogonal",
    "Overhead Perspective",
@@ -82,9 +85,6 @@ static void Project()
          break;
 
       case 1:        // Set overhead perspective transformation 
-         gluPerspective(fov,asp,dim/4,4*dim);
-         break;
-
       case 2:        // Set first person perspective transformation
          gluPerspective(fov,asp,dim/4,4*dim);
          break;
@@ -238,7 +238,7 @@ static void sphere(double x, double y, double z, double r)
 }
 
 /*
- * Draw 3 rocket fins equidistant around the rotation
+ * Draw rocket fins equidistant around the rotation
  *
  *    bz,by,bz: 3D coordinates of the base of the rocket
  *    rx,ry,rz: 3D vector for rotation of the rocket.
@@ -316,24 +316,24 @@ void display()
 
    switch(mode)
    {
-      case 0:
+      case 0:     // Orthogonal - set world orientation
       default:
-      // Orthogonal - set world orientation
-      {
          glRotatef(ph,1,0,0);
          glRotatef(th,0,1,0);
          break;
-      }
       
-      case 1:
-      // Overhead perspective - set eye position
-      {
-         double Ex = -2*dim*Sin(th)*Cos(ph);
-         double Ey = +2*dim        *Sin(ph);
-         double Ez = +2*dim*Cos(th)*Cos(ph);
+      case 1:     // Overhead perspective - set eye position
+         // Set the eye on a sphere of radius 2*dim
+         Ex = -2*dim*Sin(th)*Cos(ph);
+         Ey = +2*dim        *Sin(ph);
+         Ez = +2*dim*Cos(th)*Cos(ph);
+
          gluLookAt(Ex,Ey,Ez , 0,0,0 , 0,Cos(ph),0);
          break;
-      }
+
+      case 2:     // First person perspective
+         gluLookAt(Ex, Ey, Ez, Ex+Lx, Ey+Ly, Ez+Lz, 0, Cos(ph), 0);
+         break;
    }
 
    // Draw some rockets.   (ref: http://colorizer.org/ for a good interactive color chooser)
@@ -391,19 +391,19 @@ void special(int key,int x,int y)
    switch (key)
    {
       case GLUT_KEY_RIGHT:       //  Right arrow key - increase angle by 5 degrees
-         th += 5;
+         th += 1;
          break;
       
       case GLUT_KEY_LEFT:        //  Left arrow key - decrease angle by 5 degrees
-         th -= 5;
+         th -= 1;
          break;
       
       case GLUT_KEY_UP:          //  Up arrow key - increase elevation by 5 degrees
-         ph += 5;
+         ph += 1;
          break;
       
       case GLUT_KEY_DOWN:        //  Down arrow key - decrease elevation by 5 degrees
-         ph -= 5;
+         ph -= 1;
          break;
       
       case GLUT_KEY_PAGE_UP:     //  PageUp key - increase dim
@@ -419,6 +419,12 @@ void special(int key,int x,int y)
    //  Keep angles to +/-360 degrees
    th %= 360;
    ph %= 360;
+
+   // Compute "look at" vector
+   Lx = Sin(th)*Cos(ph);
+   Ly = Sin(ph);
+   Lz = -Cos(th)*Cos(ph);
+
    //  Update projection
    Project();
    //  Tell GLUT it is necessary to redisplay the scene
@@ -434,11 +440,9 @@ void key(unsigned char ch,int x,int y)
    switch (ch)
    {
       case 27:          //  Exit on ESC
+      case 'q':         // or 'q'
+      case 'Q':
          exit(0);
-         break;
-
-      case '0':         //  Reset view angle
-         th = ph = 0;
          break;
 
       case 'a':         //  Toggle axes
@@ -450,6 +454,15 @@ void key(unsigned char ch,int x,int y)
       case 'M':
          mode++;
          mode %= 3;
+         // deliberately omitted break so that mode change will reset view angle and eye position
+
+      case '0':         //  Reset view angle and eye position
+         Ex = Ey = 0.0;
+         Ez = 2.0*dim;
+         th = ph = 0;
+         Lx = 0;
+         Ly = 0;
+         Lz = -1.0;
          break;
 
       case '-':         // Zoom out
@@ -459,6 +472,20 @@ void key(unsigned char ch,int x,int y)
       case '+':         // Zoom in
       case '=':
          fov--;
+         break;
+
+      case 'w':         // Move forward along the "look at" vector
+      case 'W':
+         Ex += Lx/10.0;
+         Ey += Ly/10.0;
+         Ez += Lz/10.0;
+         break;
+
+      case 's':         // Move backward along the "look at" vector
+      case 'S':
+         Ex -= Lx/10.0;
+         Ey -= Ly/10.0;
+         Ez -= Lz/10.0;
          break;
    }
    
@@ -486,6 +513,17 @@ void reshape(int width,int height)
  */
 int main(int argc,char* argv[])
 {
+   // Initialize the global eye position for the perspective views
+   Ex = 0.0;
+   Ey = 0.0;
+   Ez = 2.0*dim;
+
+   // Initialize the "look at" vector for the first person view
+   Lx = 0;
+   Ly = 0;
+   Lz = -1.0;
+
+   
    //  Initialize GLUT
    glutInit(&argc,argv);
    //  Request double buffered, true color window with Z buffering at 600x600
