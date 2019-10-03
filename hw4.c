@@ -33,6 +33,11 @@ int ph=0;         //  Elevation of view angle
 int fov=55;       //  Field of view (for perspective)
 double asp=1;     //  Aspect ratio
 double dim=2.5;   //  Size of world
+char * mode_desc[] = {
+   "Orthogonal",
+   "Overhead Perspective",
+   "First Person Perspective"
+};
 
 //  Cosine and Sine in degrees
 #define Cos(x) (cos((x)*3.1415926/180))
@@ -71,15 +76,17 @@ static void Project()
 
    switch (mode)
    {
-      case 0:
+      case 0:        // Set orthogonal transformation
       default:
          glOrtho(-asp*dim,+asp*dim, -dim,+dim, -dim,+dim);
          break;
 
-      case 1:
-         // Set overhead perspective transformation 
+      case 1:        // Set overhead perspective transformation 
          gluPerspective(fov,asp,dim/4,4*dim);
+         break;
 
+      case 2:        // Set first person perspective transformation
+         gluPerspective(fov,asp,dim/4,4*dim);
          break;
    }
 
@@ -329,8 +336,7 @@ void display()
       }
    }
 
-   // Draw some rockets
-   // (ref: http://colorizer.org/ for a good interactive color chooser)
+   // Draw some rockets.   (ref: http://colorizer.org/ for a good interactive color chooser)
    rocket(   1,   1,   0,  1, 1, 0,  30,  1.0/70.0, 120, 3);    // Green, 3 fins
    rocket(  -1,   0,   0,  1, 0, 1,  85, -1.0/60.0, 180, 4);    // Cyan, 4 fins
    rocket(   0, 0.5, 1.5,  0, 1, 1, 161,  1.0/80.0, 300, 5);    // Magenta, 5 fins
@@ -360,10 +366,16 @@ void display()
       glRasterPos3d(0.0,0.0,len);
       Print("Z");
    }
-   //  Five pixels from the lower left corner of the window
+
+   glWindowPos2i(5,65);
+   Print("     Angle: %d,%d", th, ph);
+   glWindowPos2i(5,45);
+   Print("       Dim: %.1f", dim);
    glWindowPos2i(5,25);
-   //  Print the text string
-   Print("Angle=%d,%d  Dim=%.1f FOV=%d Projection=%s",th,ph,dim,fov,mode?"Perpective":"Orthogonal");
+   Print("       FOV: %d", fov);
+   glWindowPos2i(5,5);
+   Print("Projection: %s", mode_desc[mode]);
+
    //  Render the scene
    glFlush();
    //  Make the rendered scene visible
@@ -371,28 +383,39 @@ void display()
 }
 
 /*
- *  GLUT calls this routine when an arrow key is pressed
+ *  GLUT calls this routine when keyboard function or directional keys are pressed
+ *  https://www.opengl.org/resources/libraries/glut/spec3/node54.html
  */
 void special(int key,int x,int y)
 {
-   //  Right arrow key - increase angle by 5 degrees
-   if (key == GLUT_KEY_RIGHT)
-      th += 5;
-   //  Left arrow key - decrease angle by 5 degrees
-   else if (key == GLUT_KEY_LEFT)
-      th -= 5;
-   //  Up arrow key - increase elevation by 5 degrees
-   else if (key == GLUT_KEY_UP)
-      ph += 5;
-   //  Down arrow key - decrease elevation by 5 degrees
-   else if (key == GLUT_KEY_DOWN)
-      ph -= 5;
-   //  PageUp key - increase dim
-   else if (key == GLUT_KEY_PAGE_UP)
-      dim += 0.1;
-   //  PageDown key - decrease dim
-   else if (key == GLUT_KEY_PAGE_DOWN && dim>1)
-      dim -= 0.1;
+   switch (key)
+   {
+      case GLUT_KEY_RIGHT:       //  Right arrow key - increase angle by 5 degrees
+         th += 5;
+         break;
+      
+      case GLUT_KEY_LEFT:        //  Left arrow key - decrease angle by 5 degrees
+         th -= 5;
+         break;
+      
+      case GLUT_KEY_UP:          //  Up arrow key - increase elevation by 5 degrees
+         ph += 5;
+         break;
+      
+      case GLUT_KEY_DOWN:        //  Down arrow key - decrease elevation by 5 degrees
+         ph -= 5;
+         break;
+      
+      case GLUT_KEY_PAGE_UP:     //  PageUp key - increase dim
+         dim += 0.1;
+         break;
+      
+      case GLUT_KEY_PAGE_DOWN:   //  PageDown key - decrease dim
+         if (dim>1)
+            dim -= 0.1;
+         break;
+   }
+
    //  Keep angles to +/-360 degrees
    th %= 360;
    ph %= 360;
@@ -403,26 +426,42 @@ void special(int key,int x,int y)
 }
 
 /*
- *  GLUT calls this routine when a key is pressed
+ *  "When a user types into the window, each key press generating an ASCII character will generate a keyboard callback."
+ *  https://www.opengl.org/resources/libraries/glut/spec3/node49.html
  */
 void key(unsigned char ch,int x,int y)
 {
-   //  Exit on ESC
-   if (ch == 27)
-      exit(0);
-   //  Reset view angle
-   else if (ch == '0')
-      th = ph = 0;
-   //  Toggle axes
-   else if (ch == 'a' || ch == 'A')
-      axes = 1-axes;
-   else if (ch == 'm' || ch == 'M')
-      mode = 1-mode;
-   //  Change field of view angle
-   else if (ch == '-' && ch>1)
-      fov--;
-   else if (ch == '+' && ch<179)
-      fov++;
+   switch (ch)
+   {
+      case 27:          //  Exit on ESC
+         exit(0);
+         break;
+
+      case '0':         //  Reset view angle
+         th = ph = 0;
+         break;
+
+      case 'a':         //  Toggle axes
+      case 'A':
+         axes = 1-axes;
+         break;
+
+      case 'm':         //  Change field of view angle
+      case 'M':
+         mode++;
+         mode %= 3;
+         break;
+
+      case '-':         // Zoom out
+         fov++;
+         break;
+
+      case '+':         // Zoom in
+      case '=':
+         fov--;
+         break;
+   }
+   
    //  Reproject
    Project();
    //  Tell GLUT it is necessary to redisplay the scene
