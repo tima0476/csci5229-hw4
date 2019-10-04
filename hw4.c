@@ -5,10 +5,18 @@
  * Based heavily on example 8, ex8.c
  *
  *  Key bindings:
- *  a          Toggle axes
- *  arrows     Change view angle
+ *  a          Toggle display of axes
+ *  arrows     Ortho, Overhead: Change view angle
+ *                First Person: Change look direction
+ *  w          First Person:  Move forward
+ *  s          First Person:  Move backward
+ *  m          Cycle view mode between Ortho / Overhead Perspective / First-Person Perspective
+ *  +          Zoom out
+ *  -          Zoom in
+ *  PgUp       Increase Dim
+ *  PgDn       Decrease Dim
  *  0          Reset view angle
- *  ESC        Exit
+ *  ESC or q   Exit
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -35,6 +43,7 @@ double asp=1;        // Aspect ratio
 double dim=2.5;      // Size of world
 double Ex,Ey,Ez;     // Eye position needs global persistence in first person mode
 double Lx,Ly,Lz;     // Avoid repeating calculations by making "look at" vector global
+double near, far;    // near and far clipping planes
 
 char * mode_desc[] = {
    "Orthogonal",
@@ -85,8 +94,15 @@ static void Project()
          break;
 
       case 1:        // Set overhead perspective transformation 
+         near = dim/4;
+         far = 4*dim;
+         gluPerspective(fov, asp, near, far);
+         break;
+
       case 2:        // Set first person perspective transformation
-         gluPerspective(fov,asp,dim/4,4*dim);
+         near = dim/16;
+         far = 16*dim;
+         gluPerspective(fov, asp, near, far);
          break;
    }
 
@@ -368,11 +384,11 @@ void display()
    }
 
    glWindowPos2i(5,65);
-   Print("     Angle: %d,%d", th, ph);
+   Print("     Angle: %3d,%3d         Eye: %.2f, %.2f, %.2f", th, ph, Ex, Ey, Ez);
    glWindowPos2i(5,45);
-   Print("       Dim: %.1f", dim);
+   Print("       Dim: %.1f            Look: %.2f, %.2f, %.2f", dim, Lx, Ly, Lz);
    glWindowPos2i(5,25);
-   Print("       FOV: %d", fov);
+   Print("       FOV: %3d       Near, Far: %.2f, %.2f", fov,near, far);
    glWindowPos2i(5,5);
    Print("Projection: %s", mode_desc[mode]);
 
@@ -391,11 +407,11 @@ void special(int key,int x,int y)
    switch (key)
    {
       case GLUT_KEY_RIGHT:       //  Right arrow key - increase angle by 5 degrees
-         th += 1;
+         th -= 1;
          break;
       
       case GLUT_KEY_LEFT:        //  Left arrow key - decrease angle by 5 degrees
-         th -= 1;
+         th += 1;
          break;
       
       case GLUT_KEY_UP:          //  Up arrow key - increase elevation by 5 degrees
@@ -421,7 +437,7 @@ void special(int key,int x,int y)
    ph %= 360;
 
    // Compute "look at" vector
-   Lx = Sin(th)*Cos(ph);
+   Lx = -Sin(th)*Cos(ph);
    Ly = Sin(ph);
    Lz = -Cos(th)*Cos(ph);
 
@@ -463,6 +479,16 @@ void key(unsigned char ch,int x,int y)
          Lx = 0;
          Ly = 0;
          Lz = -1.0;
+         if (mode==2)
+         {
+            near = dim/16;
+            far = 16*dim;
+         }
+         else
+         {
+            near = dim/4;
+            far = 4*dim;
+         }
          break;
 
       case '-':         // Zoom out
@@ -523,12 +549,15 @@ int main(int argc,char* argv[])
    Ly = 0;
    Lz = -1.0;
 
+   // Initialize near and far clipping planes
+   near = dim/4;
+   far = 4*dim;
    
    //  Initialize GLUT
    glutInit(&argc,argv);
    //  Request double buffered, true color window with Z buffering at 600x600
    glutInitDisplayMode(GLUT_RGB | GLUT_DEPTH | GLUT_DOUBLE);
-   glutInitWindowSize(800,800);
+   glutInitWindowSize(1024,1024);
    glutCreateWindow("Timothy Mason");
    //  Set callbacks
    glutDisplayFunc(display);
