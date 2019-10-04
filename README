@@ -21,8 +21,15 @@ Additions for HW4:
 	person perspective.
 
 Key bindings:
-  a          Toggle display of axes
-  arrows     Change view angle
-  0          Reset view angle
-  ESC        Exit
-
+    a          Toggle display of axes
+    arrows     Ortho, Overhead: Change view angle
+                  First Person: Change look direction
+    w          First Person:  Move forward
+    s          First Person:  Move backward
+    m          Cycle view mode between Ortho / Overhead Perspective / First-Person Perspective
+    +          Zoom out
+    -          Zoom in
+    PgUp       Increase Dim
+    PgDn       Decrease Dim
+    0          Reset view angle
+    ESC or q   Exit
